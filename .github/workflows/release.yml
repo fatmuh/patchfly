@@ -93,8 +93,8 @@ jobs:
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
-          repository: fatmuh/patchfly-cli-binaries
         with:
+          repository: fatmuh/patchfly-cli-binaries
           name: ${{ github.ref_name }}
           generate_release_notes: true
           files: |
@@ -109,4 +109,4 @@ jobs:
             dist/patchfly-windows-x64.exe
             dist/patchfly-windows-x64.exe.sha256
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.PATCHFLY_RELEASE_TOKEN }}
