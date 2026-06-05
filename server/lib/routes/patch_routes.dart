@@ -24,7 +24,8 @@ class PatchRoutes {
     await _verifyReleaseOwnership(releaseId, _userId(request));
     final list = await patches.listForRelease(releaseId);
     return jsonResponse({
-      'patches': list.map((p) => p.toManifestJson(downloadUrl: '')).toList(),
+      'patches':
+          list.map((p) => p.toManifestJson(downloadUrl: _downloadUrl(p.id))).toList(),
     });
   }
 
@@ -95,7 +96,7 @@ class PatchRoutes {
     await uploadedFile.delete().catchError((_) => uploadedFile!);
 
     return jsonResponse(
-      {'patch': patch.toManifestJson(downloadUrl: '')},
+      {'patch': patch.toManifestJson(downloadUrl: _downloadUrl(patch.id))},
       status: 201,
     );
   }
@@ -105,9 +106,7 @@ class PatchRoutes {
     if (p == null) throw NotFound('Patch not found');
     await _verifyReleaseOwnership(p.releaseId, _userId(request));
     return jsonResponse({
-      'patch': p.toManifestJson(
-        downloadUrl: '${cfg.baseUrl}/api/v1/patches/${p.id}/file',
-      ),
+      'patch': p.toManifestJson(downloadUrl: _downloadUrl(p.id)),
     });
   }
 
@@ -122,7 +121,8 @@ class PatchRoutes {
       await patches.setActive(id, v.toLowerCase() == 'true');
     }
     final updated = (await patches.findById(id))!;
-    return jsonResponse({'patch': updated.toManifestJson(downloadUrl: '')});
+    return jsonResponse(
+        {'patch': updated.toManifestJson(downloadUrl: _downloadUrl(updated.id))});
   }
 
   Future<Response> delete(Request request, String id) async {
@@ -138,7 +138,8 @@ class PatchRoutes {
     if (p == null) throw NotFound('Patch not found');
     await _verifyReleaseOwnership(p.releaseId, _userId(request));
     final updated = await patches.setActive(id, true);
-    return jsonResponse({'patch': updated.toManifestJson(downloadUrl: '')});
+    return jsonResponse(
+        {'patch': updated.toManifestJson(downloadUrl: _downloadUrl(updated.id))});
   }
 
   Future<Response> rollout(Request request, String id) async {
@@ -149,10 +150,17 @@ class PatchRoutes {
     final percent = Validation.optionalInt(body, 'percent') ??
         (throw BadRequest('percent (0-100) is required'));
     final updated = await patches.setRollout(id, percent);
-    return jsonResponse({'patch': updated.toManifestJson(downloadUrl: '')});
+    return jsonResponse(
+        {'patch': updated.toManifestJson(downloadUrl: _downloadUrl(updated.id))});
   }
 
   // ---- Helpers ----
+
+  /// Public download URL for a patch, derived from server's public base URL.
+  /// Requires PATCHFLY_BASE_URL env var (default: http://localhost:8080).
+  /// Set to your public domain (e.g. https://api.patchfly.dev) in production.
+  String _downloadUrl(String patchId) =>
+      '${cfg.baseUrl}/api/v1/patches/$patchId/file';
 
   String _userId(Request req) {
     final id = req.context['userId'] as String?;

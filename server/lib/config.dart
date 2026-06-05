@@ -70,26 +70,55 @@ class AppConfig {
     } catch (_) {}
 
     String env(String key, [String fallback = '']) {
+      // Try the requested key first (e.g. PATCHFLY_BASE_URL).
       final v = Platform.environment[key];
       if (v != null && v.isNotEmpty) return v;
+      // Backward compat: also try the Pultflut-prefixed version
+      // (e.g. PULTFLUT_BASE_URL) so existing deployments don't break.
+      if (key.startsWith('PATCHFLY_')) {
+        final legacy = Platform.environment['PULTFLUT_${key.substring(9)}'];
+        if (legacy != null && legacy.isNotEmpty) return legacy;
+      }
       return fallback;
     }
 
     String? envOpt(String key) {
       final v = Platform.environment[key];
-      if (v == null || v.isEmpty) return null;
+      if (v == null || v.isEmpty) {
+        if (key.startsWith('PATCHFLY_')) {
+          final legacy = Platform.environment['PULTFLUT_${key.substring(9)}'];
+          if (legacy != null && legacy.isNotEmpty) return legacy;
+        }
+        return null;
+      }
       return v;
     }
 
     int envInt(String key, int fallback) {
       final v = Platform.environment[key];
-      if (v == null || v.isEmpty) return fallback;
+      if (v == null || v.isEmpty) {
+        if (key.startsWith('PATCHFLY_')) {
+          final legacy = Platform.environment['PULTFLUT_${key.substring(9)}'];
+          if (legacy != null && legacy.isNotEmpty) {
+            return int.tryParse(legacy) ?? fallback;
+          }
+        }
+        return fallback;
+      }
       return int.tryParse(v) ?? fallback;
     }
 
     bool envBool(String key, bool fallback) {
       final v = Platform.environment[key];
-      if (v == null || v.isEmpty) return fallback;
+      if (v == null || v.isEmpty) {
+        if (key.startsWith('PATCHFLY_')) {
+          final legacy = Platform.environment['PULTFLUT_${key.substring(9)}'];
+          if (legacy != null && legacy.isNotEmpty) {
+            return legacy.toLowerCase() == 'true' || legacy == '1';
+          }
+        }
+        return fallback;
+      }
       return v.toLowerCase() == 'true' || v == '1';
     }
 
