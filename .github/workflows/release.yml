@@ -54,22 +54,11 @@ jobs:
         working-directory: cli
         run: dart compile exe bin/patchfly.dart -o ${{ matrix.asset }}${{ matrix.os == 'windows-latest' && '.exe' || '' }}
 
-      - name: Generate SHA-256
-        working-directory: cli
-        # Use shasum (works on macOS, Linux, and Git Bash on Windows).
-        # Avoid mixing PowerShell into shell: bash — it breaks parsing.
-        run: |
-          EXE="${{ matrix.os == 'windows-latest' && '.exe' || '' }}"
-          shasum -a 256 "${{ matrix.asset }}$EXE" > "${{ matrix.asset }}$EXE.sha256"
-        shell: bash
-
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.asset }}
-          path: |
-            cli/${{ matrix.asset }}${{ matrix.os == 'windows-latest' && '.exe' || '' }}
-            cli/${{ matrix.asset }}${{ matrix.os == 'windows-latest' && '.exe' || '' }}.sha256
+          path: cli/${{ matrix.asset }}${{ matrix.os == 'windows-latest' && '.exe' || '' }}
           if-no-files-found: error
 
   publish:
@@ -100,6 +89,28 @@ jobs:
         run: |
           find dist -mindepth 2 -maxdepth 2 -type f -exec mv {} dist/ \;
           ls -la dist/
+
+      - name: Generate SHA-256 for all binaries
+        # Done once on the publish job (Ubuntu) — avoids per-OS shell
+        # portability issues with shasum/sha256sum/Get-FileHash.
+        # Outputs:
+        #   dist/<binary>.sha256   (per-file)
+        #   dist/SHA256SUMS        (combined manifest)
+        run: |
+          cd dist
+          # Per-file .sha256 (format: "<hash>  <filename>" - two spaces, GNU coreutils style)
+          for f in *; do
+            [ -f "$f" ] || continue
+            sha256sum "$f" > "$f.sha256"
+          done
+          # Combined SHA256SUMS manifest (what most release pages expect)
+          sha256sum * > SHA256SUMS
+          echo ""
+          echo "=== Generated checksums ==="
+          cat SHA256SUMS
+          echo ""
+          echo "=== Files in dist/ ==="
+          ls -la
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
