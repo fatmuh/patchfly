@@ -14,10 +14,10 @@ class AppsCommand implements CommandRunner {
   @override
   Future<void> run(List<String> args) async {
     final parser = ArgParser()
-      ..addCommand('list')
-      ..addCommand('create')
-      ..addCommand('get')
-      ..addCommand('delete');
+      ..addCommand('list', _emptySubParser())
+      ..addCommand('create', _createSubParser())
+      ..addCommand('get', _emptySubParser())
+      ..addCommand('delete', _emptySubParser());
     final result = parser.parse(args);
 
     final cfg = await ConfigStore.load();
@@ -40,6 +40,17 @@ class AppsCommand implements CommandRunner {
     }
   }
 
+  // Subcommand parsers — must be pre-built and passed to addCommand
+  // so options like --slug are recognized. Empty parser is used for
+  // subcommands that only take positional args (or no args).
+  static ArgParser _emptySubParser() => ArgParser();
+
+  static ArgParser _createSubParser() => ArgParser()
+    ..addOption('slug', help: 'Reverse-DNS slug, e.g. com.acme.myapp')
+    ..addOption('name', help: 'Display name')
+    ..addOption('platform',
+        allowed: ['android', 'ios', 'all'], defaultsTo: 'android');
+
   Future<void> _list(ApiClient api) async {
     final res = await api.get('/api/v1/apps');
     final apps = (res as Map)['apps'] as List;
@@ -54,21 +65,15 @@ class AppsCommand implements CommandRunner {
   }
 
   Future<void> _create(ApiClient api, ArgResults args) async {
-    final p = ArgParser()
-      ..addOption('slug', help: 'Reverse-DNS slug, e.g. com.acme.myapp')
-      ..addOption('name', help: 'Display name')
-      ..addOption('platform',
-          allowed: ['android', 'ios', 'all'], defaultsTo: 'android');
-    final r = p.parse(args.rest);
-    final slug = r['slug'] as String?;
-    final name = r['name'] as String?;
+    final slug = args['slug'] as String?;
+    final name = args['name'] as String?;
     if (slug == null || name == null) {
       throw CliException('--slug and --name are required');
     }
     final res = await api.post('/api/v1/apps', {
       'slug': slug,
       'name': name,
-      'platform': r['platform'],
+      'platform': args['platform'] ?? 'android',
     });
     final app = (res as Map)['app'] as Map;
     final sdkKey = res['sdkKey'] as String;

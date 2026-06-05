@@ -14,9 +14,9 @@ class KeysCommand implements CommandRunner {
   @override
   Future<void> run(List<String> args) async {
     final parser = ArgParser()
-      ..addCommand('list')
-      ..addCommand('create')
-      ..addCommand('revoke');
+      ..addCommand('list', _emptySubParser())
+      ..addCommand('create', _createSubParser())
+      ..addCommand('revoke', _emptySubParser());
     final result = parser.parse(args);
 
     final cfg = await ConfigStore.load();
@@ -36,6 +36,12 @@ class KeysCommand implements CommandRunner {
     }
   }
 
+  static ArgParser _emptySubParser() => ArgParser();
+
+  static ArgParser _createSubParser() => ArgParser()
+    ..addOption('name', help: 'Name for this key (e.g. "Work laptop")')
+    ..addOption('expires-in-days', help: 'Expire after N days (optional)');
+
   Future<void> _list(ApiClient api) async {
     final res = await api.get('/api/v1/keys');
     final keys = (res as Map)['apiKeys'] as List;
@@ -51,16 +57,12 @@ class KeysCommand implements CommandRunner {
   }
 
   Future<void> _create(ApiClient api, ArgResults args) async {
-    final p = ArgParser()
-      ..addOption('name', help: 'Name for this key (e.g. "Work laptop")')
-      ..addOption('expires-in-days', help: 'Expire after N days (optional)');
-    final r = p.parse(args.rest);
-    final name = r['name'] as String?;
+    final name = args['name'] as String?;
     if (name == null) {
       throw CliException('--name is required');
     }
     final body = <String, dynamic>{'name': name};
-    final days = r['expires-in-days'];
+    final days = args['expires-in-days'];
     if (days != null) body['expiresInDays'] = int.parse(days as String);
 
     final res = await api.post('/api/v1/keys', body);

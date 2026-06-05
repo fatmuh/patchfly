@@ -14,8 +14,8 @@ class ReleasesCommand implements CommandRunner {
   @override
   Future<void> run(List<String> args) async {
     final parser = ArgParser()
-      ..addCommand('list')
-      ..addCommand('create');
+      ..addCommand('list', _emptySubParser())
+      ..addCommand('create', _createSubParser());
     final result = parser.parse(args);
 
     final cfg = await ConfigStore.load();
@@ -31,6 +31,16 @@ class ReleasesCommand implements CommandRunner {
       await _create(api, result.command!);
     }
   }
+
+  static ArgParser _emptySubParser() => ArgParser();
+
+  static ArgParser _createSubParser() => ArgParser()
+    ..addOption('app', help: 'App slug')
+    ..addOption('version', help: 'Version string, e.g. 1.4.2+15')
+    ..addOption('channel',
+        allowed: ['stable', 'beta', 'internal', 'alpha'],
+        defaultsTo: 'stable')
+    ..addOption('notes', help: 'Release notes');
 
   Future<void> _list(ApiClient api, List<String> rest) async {
     if (rest.isEmpty) {
@@ -57,16 +67,8 @@ class ReleasesCommand implements CommandRunner {
   }
 
   Future<void> _create(ApiClient api, ArgResults args) async {
-    final p = ArgParser()
-      ..addOption('app', help: 'App slug')
-      ..addOption('version', help: 'Version string, e.g. 1.4.2+15')
-      ..addOption('channel',
-          allowed: ['stable', 'beta', 'internal', 'alpha'],
-          defaultsTo: 'stable')
-      ..addOption('notes', help: 'Release notes');
-    final r = p.parse(args.rest);
-    final slug = r['app'] as String?;
-    final version = r['version'] as String?;
+    final slug = args['app'] as String?;
+    final version = args['version'] as String?;
     if (slug == null || version == null) {
       throw CliException('--app and --version are required');
     }
@@ -78,8 +80,8 @@ class ReleasesCommand implements CommandRunner {
 
     final res = await api.post('/api/v1/apps/${app['id']}/releases', {
       'version': version,
-      'channel': r['channel'],
-      'notes': r['notes'],
+      'channel': args['channel'] ?? 'stable',
+      'notes': args['notes'],
     });
     final rel = (res as Map)['release'] as Map;
     print('✓ Created release ${rel['version']} on ${rel['channelName']}');
