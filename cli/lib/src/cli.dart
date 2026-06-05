@@ -10,6 +10,7 @@ import 'commands/apps.dart';
 import 'commands/assets.dart';
 import 'commands/releases.dart';
 import 'commands/patch.dart';
+import 'commands/patches.dart';
 import 'commands/promote.dart';
 import 'commands/rollout.dart';
 import 'commands/doctor.dart';
@@ -37,7 +38,8 @@ Future<void> runCli(List<String> args) async {
   final appsCmd = AppsCommand();
   final releasesCmd = ReleasesCommand();
   final patchCmd = PatchCommand();
-  final promoteCmd = PromoteCommand();
+  final patchesCmd = PatchesCommand();
+  final promoteCmd = PromoteCommand(); // legacy: forwards to `patches promote`
   final rolloutCmd = RolloutCommand();
   final doctorCmd = DoctorCommand();
   final assetsCmd = AssetsCommand();
@@ -51,7 +53,8 @@ Future<void> runCli(List<String> args) async {
     'apps': appsCmd,
     'releases': releasesCmd,
     'patch': patchCmd,
-    'promote': promoteCmd,
+    'patches': patchesCmd,
+    'promote': promoteCmd, // deprecated, use `patches promote`
     'rollout': rolloutCmd,
     'doctor': doctorCmd,
     'assets': assetsCmd,
@@ -96,7 +99,9 @@ void _printHelp(ArgParser top, Map<String, CommandRunner> commands) {
 Patchfly CLI v$version
 Build & deploy OTA updates to Flutter apps.
 
-Usage: patchfly <command> [options]
+Usage:
+  patchfly <command> [options]
+  patchfly <command> --help      full options for a subcommand
 
 Global options:
 ${top.usage}
@@ -105,14 +110,21 @@ Commands:
 ''');
   for (final entry in commands.entries) {
     final firstLine = entry.value.description.split('\n').first;
-    print('  ${entry.key.padRight(12)} $firstLine');
+    final tag = entry.key == 'promote' ? ' (deprecated, use: patches promote)' : '';
+    print('  ${entry.key.padRight(12)} $firstLine$tag');
   }
   print('''
-Examples:
-  patchfly login
-  patchfly apps create --slug com.acme.app --name "My App"
-  patchfly init
-  patchfly patch
+Common workflows:
+  patchfly login                                          log in
+  patchfly apps create --slug com.acme.app --name ...     register a new app
+  patchfly apps list                                      see apps you own
+  patchfly releases create --app ... --version 1.0.0      create a release
+  patchfly patch --app ...                                build & upload a patch
+  patchfly patches list --app ...                         list patches
+  patchfly patches get <id>                               inspect a patch
+  patchfly patches promote <number> --app ...             activate a patch
+
+Run `patchfly <command> --help` for full options on any command.
 ''');
 }
 

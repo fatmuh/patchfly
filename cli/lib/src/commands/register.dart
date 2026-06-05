@@ -14,12 +14,21 @@ class RegisterCommand implements CommandRunner {
 
   @override
   Future<void> run(List<String> args) async {
+    if (args.contains('--help') || args.contains('-h')) {
+      _printUsage();
+      return;
+    }
     final parser = ArgParser()
+      ..addFlag('help', abbr: 'h', negatable: false)
       ..addOption('email', abbr: 'e')
       ..addOption('password', abbr: 'p')
       ..addOption('name', abbr: 'n')
       ..addOption('server', abbr: 's');
     final result = parser.parse(args);
+    if (result['help'] == true) {
+      _printUsage();
+      return;
+    }
 
     final cfg = await ConfigStore.load();
     final server = (result['server'] as String?) ??
@@ -67,5 +76,34 @@ class RegisterCommand implements CommandRunner {
     );
     await ConfigStore.save(newCfg);
     print('✓ Registered and logged in as ${user['email']}');
+  }
+
+  void _printUsage() {
+    print('''
+patchfly register — create a new Patchfly account
+
+Usage:
+  patchfly register [options]
+
+Options:
+  -e, --email <email>      Email address (prompts if not given)
+  -p, --password <pass>    Password, min 8 chars (prompts if not given, hidden input)
+  -n, --name <name>        Your name (optional)
+  -s, --server <url>       Patchfly server URL (default: from config)
+  -h, --help               Show this help
+
+Examples:
+  # Interactive
+  patchfly register
+
+  # Non-interactive
+  patchfly register --email me@example.com --password mypassword
+
+  # With display name
+  patchfly register --email me@example.com --password mypass --name "Fathur"
+
+  # Register on a different server
+  patchfly register --server https://staging.patchfly.dev
+''');
   }
 }

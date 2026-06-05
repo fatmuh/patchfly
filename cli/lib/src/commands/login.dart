@@ -15,12 +15,21 @@ class LoginCommand implements CommandRunner {
 
   @override
   Future<void> run(List<String> args) async {
+    if (args.contains('--help') || args.contains('-h')) {
+      _printUsage();
+      return;
+    }
     final parser = ArgParser()
+      ..addFlag('help', abbr: 'h', negatable: false)
       ..addOption('email', abbr: 'e')
       ..addOption('password', abbr: 'p')
       ..addOption('api-key', help: 'Paste an existing API key (pft_...)')
       ..addOption('server', abbr: 's', help: 'Patchfly server URL');
     final result = parser.parse(args);
+    if (result['help'] == true) {
+      _printUsage();
+      return;
+    }
 
     final cfg = await ConfigStore.load();
     final server = (result['server'] as String?) ??
@@ -79,5 +88,34 @@ class LoginCommand implements CommandRunner {
       }
       rethrow;
     }
+  }
+
+  void _printUsage() {
+    print('''
+patchfly login — log in to Patchfly (email/password or API key)
+
+Usage:
+  patchfly login [options]
+
+Options:
+  -e, --email <email>      Email address (prompts if not given)
+  -p, --password <pass>    Password (prompts if not given, hidden input)
+      --api-key <key>      Paste an existing API key (pfk_...) instead
+  -s, --server <url>       Patchfly server URL (default: from config)
+  -h, --help               Show this help
+
+Examples:
+  # Interactive (prompts for email + password)
+  patchfly login
+
+  # Non-interactive
+  patchfly login --email me@example.com --password mypass
+
+  # Use an API key (e.g. from `patchfly keys create`)
+  patchfly login --api-key pfk_xxxxxxxx
+
+  # Log in to a different server
+  patchfly login --server https://staging.patchfly.dev
+''');
   }
 }

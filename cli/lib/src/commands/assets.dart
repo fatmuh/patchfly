@@ -1,6 +1,8 @@
-// cli/lib/src/commands/assets.dart
+// `patchfly assets` — manage asset/config bundles for an app.
 //
-// Patchfly CLI — asset/config upload command.
+// (Note: most users will use `patchfly patch` for code patches, and
+// `patchfly assets push` only for asset/config bundles that ship
+// outside a Flutter AOT build.)
 
 import 'dart:convert';
 import 'dart:io';
@@ -17,29 +19,58 @@ class AssetsCommand implements CommandRunner {
 
   @override
   Future<void> run(List<String> args) async {
-    if (args.isEmpty) {
+    if (args.isEmpty || args[0] == '--help' || args[0] == '-h') {
       _printUsage();
       return;
     }
     final sub = args.first;
     final subArgs = args.sublist(1);
-    switch (sub) {
-      case 'push':
-        await _PushCommand().run(subArgs);
-        break;
-      case 'list':
-        await _ListCommand().run(subArgs);
-        break;
-      default:
-        print('Unknown subcommand: $sub');
-        _printUsage();
+    try {
+      switch (sub) {
+        case 'push':
+          await _PushCommand().run(subArgs);
+          break;
+        case 'list':
+          await _ListCommand().run(subArgs);
+          break;
+        case '--help':
+        case '-h':
+          _printUsage();
+          break;
+        default:
+          print('Unknown subcommand: $sub');
+          _printUsage();
+      }
+    } on CliException catch (e) {
+      print('Error: ${e.message}');
+      if (e.hint != null) print('Hint: ${e.hint}');
     }
   }
 
   void _printUsage() {
-    print('Usage: patchfly assets <push|list> ...');
-    print('  push <appId> <zipPath> [--changelog "..."]');
-    print('  list <appId>');
+    print('''
+patchfly assets — manage asset/config bundles for an app
+
+Usage:
+  patchfly assets <subcommand> [options]
+
+Subcommands:
+  push <appId> <zipPath>     Upload a new asset bundle (zip file)
+  list <appId>               List asset versions for an app
+
+Options for `push`:
+      --changelog "..."       Changelog text for this asset version
+
+Examples:
+  # Upload an asset bundle (zip)
+  patchfly assets push fb18aece-5dfc-4865-9435-77200efa3f17 ./bundle.zip
+
+  # With a changelog
+  patchfly assets push <appId> ./bundle.zip --changelog "New splash screen"
+
+  # List versions
+  patchfly assets list <appId>
+''');
   }
 }
 
@@ -51,15 +82,31 @@ class _PushCommand implements CommandRunner {
 
   @override
   Future<void> run(List<String> args) async {
-    if (args.length != 2) {
-      stderr.writeln('Usage: patchfly assets push <appId> <zipPath>');
+    // Parse: <appId> <zipPath> [--changelog "..."]
+    var changelog = '""';
+    final positional = <String>[];
+    var i = 0;
+    while (i < args.length) {
+      if (args[i] == '--changelog' && i + 1 < args.length) {
+        changelog = args[i + 1];
+        i += 2;
+      } else if (args[i] == '--help' || args[i] == '-h') {
+        print('Usage: patchfly assets push <appId> <zipPath> [--changelog "..."]');
+        return;
+      } else {
+        positional.add(args[i]);
+        i += 1;
+      }
+    }
+    if (positional.length != 2) {
+      print('Usage: patchfly assets push <appId> <zipPath> [--changelog "..."]');
       return;
     }
-    final appId = args[0];
-    final zipPath = args[1];
+    final appId = positional[0];
+    final zipPath = positional[1];
     final file = File(zipPath);
     if (!file.existsSync()) {
-      stderr.writeln('File not found: $zipPath');
+      print('Error: File not found: $zipPath');
       return;
     }
     final bytes = file.readAsBytesSync();
@@ -67,12 +114,12 @@ class _PushCommand implements CommandRunner {
     final config = await ConfigStore.load();
     final token = config.token;
     if (token == null) {
-      stderr.writeln('Not logged in. Run: patchfly login');
+      print('Error: Not logged in. Run: patchfly login');
       return;
     }
     final server = config.server;
     if (server == null) {
-      stderr.writeln('No server configured. Run: patchfly init');
+      print('Error: No server configured. Run: patchfly init');
       return;
     }
     final url = '$server/api/v1/apps/$appId/assets';
@@ -82,11 +129,12 @@ class _PushCommand implements CommandRunner {
         'authorization': 'Bearer $token',
         'x-patchfly-asset-sha256': sha,
         'content-type': 'application/zip',
+        'x-patchfly-changelog': changelog,
       },
       body: bytes,
     );
     if (r.statusCode != 200) {
-      stderr.writeln('Upload failed: ${r.statusCode} ${r.body}');
+      print('Error: Upload failed: ${r.statusCode} ${r.body}');
       return;
     }
     final data = jsonDecode(r.body) as Map<String, dynamic>;
@@ -105,15 +153,19 @@ class _ListCommand implements CommandRunner {
 
   @override
   Future<void> run(List<String> args) async {
+    if (args.contains('--help') || args.contains('-h')) {
+      print('Usage: patchfly assets list <appId>');
+      return;
+    }
     if (args.length != 1) {
-      stderr.writeln('Usage: patchfly assets list <appId>');
+      print('Usage: patchfly assets list <appId>');
       return;
     }
     final appId = args[0];
     final config = await ConfigStore.load();
     final token = config.token;
     if (token == null) {
-      stderr.writeln('Not logged in.');
+      print('Error: Not logged in.');
       return;
     }
     final r = await http.get(
@@ -121,7 +173,7 @@ class _ListCommand implements CommandRunner {
       headers: {'authorization': 'Bearer $token'},
     );
     if (r.statusCode != 200) {
-      stderr.writeln('Failed: ${r.statusCode}');
+      print('Error: ${r.statusCode}');
       return;
     }
     print(r.body);

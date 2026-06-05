@@ -12,6 +12,10 @@ class WhoamiCommand implements CommandRunner {
 
   @override
   Future<void> run(List<String> args) async {
+    if (args.contains('--help') || args.contains('-h')) {
+      _printUsage();
+      return;
+    }
     final cfg = await ConfigStore.load();
     if (cfg.token == null && cfg.apiKey == null) {
       throw CliException('Not logged in. Run `patchfly login` first.');
@@ -29,5 +33,23 @@ class WhoamiCommand implements CommandRunner {
     for (final a in list) {
       print('  - ${a['slug']} (${a['id']})');
     }
+  }
+
+  void _printUsage() {
+    print('''
+patchfly whoami — show the current logged-in user
+
+Usage:
+  patchfly whoami
+
+Output:
+  Server:  the server URL you're talking to
+  Email:   your login email
+  Auth:    JWT (email/password) or API key
+  Apps:    list of apps you own (slug + id)
+
+Examples:
+  patchfly whoami
+''');
   }
 }

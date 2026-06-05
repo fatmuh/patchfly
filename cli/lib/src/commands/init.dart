@@ -14,7 +14,12 @@ class InitCommand implements CommandRunner {
 
   @override
   Future<void> run(List<String> args) async {
+    if (args.isEmpty || args.contains('--help') || args.contains('-h')) {
+      _printUsage();
+      return;
+    }
     final parser = ArgParser()
+      ..addFlag('help', abbr: 'h', negatable: false)
       ..addOption('app-id', help: 'App ID (slug) registered on server')
       ..addOption('channel', help: 'Default channel (stable/beta/internal)',
           defaultsTo: 'stable')
@@ -24,6 +29,10 @@ class InitCommand implements CommandRunner {
       ..addFlag('force', abbr: 'f', help: 'Overwrite existing patchfly.yaml');
 
     final result = parser.parse(args);
+    if (result['help'] == true) {
+      _printUsage();
+      return;
+    }
 
     final cwd = Directory.current;
     final configFile = File(p.join(cwd.path, 'patchfly.yaml'));
@@ -78,5 +87,27 @@ build:
     print('  2. Run `patchfly login`');
     print('  3. Run `patchfly apps create` (if you haven\'t registered the app yet)');
     print('  4. Run `patchfly patch` to build & upload a patch');
+  }
+
+  void _printUsage() {
+    print('''
+patchfly init — initialize Patchfly in a Flutter project (writes patchfly.yaml)
+
+Usage:
+  patchfly init [options]
+
+Options:
+      --app-id <slug>     App slug registered on the server
+      --channel <name>    Default channel: stable | beta | internal (default: stable)
+      --abi <name>        Target ABI: arm64-v8a | armeabi-v7a | x86_64 (default: arm64-v8a)
+  -f, --force             Overwrite existing patchfly.yaml
+  -h, --help              Show this help
+
+Examples:
+  patchfly init
+  patchfly init --app-id com.acme.myapp
+  patchfly init --channel beta --abi x86_64
+  patchfly init --force  # overwrite existing
+''');
   }
 }

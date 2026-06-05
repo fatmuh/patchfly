@@ -24,7 +24,13 @@ class PatchCommand implements CommandRunner {
 
   @override
   Future<void> run(List<String> args) async {
+    if (args.isEmpty || args.contains('--help') || args.contains('-h')) {
+      _printUsage();
+      return;
+    }
+
     final parser = ArgParser()
+      ..addFlag('help', abbr: 'h', negatable: false)
       ..addOption('config', defaultsTo: 'patchfly.yaml', help: 'Path to patchfly.yaml')
       ..addOption('app', help: 'App slug (overrides app.slug in patchfly.yaml)')
       ..addOption('release', help: 'Specific release ID (default: latest active)')
@@ -38,6 +44,10 @@ class PatchCommand implements CommandRunner {
       ..addFlag('dry-run', help: 'Compute everything but do not upload')
       ..addFlag('no-activate', negatable: false, help: 'Upload but don\'t activate');
     final result = parser.parse(args);
+    if (result['help'] == true) {
+      _printUsage();
+      return;
+    }
 
     final cwd = Directory.current;
     final configFile = File(p.join(cwd.path, result['config'] as String));
@@ -168,6 +178,55 @@ class PatchCommand implements CommandRunner {
     } else {
       print('  Status: inactive (use `patchfly promote` to activate)');
     }
+  }
+
+  void _printUsage() {
+    print('''
+patchfly patch — build a release & upload as a patch
+
+Usage:
+  patchfly patch [options]
+
+Options:
+      --config <path>        Path to patchfly.yaml (default: ./patchfly.yaml)
+  -a, --app <slug>           App slug (overrides app.slug in yaml)
+      --release <id>         Specific release ID (default: latest active)
+      --abi <name>           Target ABI: arm64-v8a | armeabi-v7a | x86_64
+      --channel <name>       Channel to patch: stable | beta | internal | alpha
+      --rollout <0-100>      Rollout percent (default: 100 = full)
+      --min-app-version <v>  Only deliver to apps with version >= this
+      --max-app-version <v>  Only deliver to apps with version <= this
+      --skip-build            Skip `flutter build`, use existing APK
+      --dry-run               Build, but don't upload
+      --no-activate           Upload but don't activate (use `patches promote`)
+  -h, --help                  Show this help
+
+What it does:
+  1. Run `flutter build apk --release` (or use existing APK with --skip-build)
+  2. Extract libapp.so from the APK
+  3. Hash it, upload to server
+  4. Activate it (unless --no-activate)
+
+Examples:
+  # Default: build + upload + activate
+  patchfly patch --app com.example.test
+
+  # Build for a different ABI
+  patchfly patch --app com.example.test --abi x86_64
+
+  # Staged rollout (start at 25%)
+  patchfly patch --app com.example.test --rollout 25
+
+  # Upload but don't activate yet
+  patchfly patch --app com.example.test --no-activate
+  patchfly patches promote 1 --app com.example.test   # activate later
+
+  # Use an existing APK (no rebuild)
+  patchfly patch --app com.example.test --skip-build
+
+  # Dry run (verify config without uploading)
+  patchfly patch --app com.example.test --dry-run
+''');
   }
 
   String _abiToPlatform(String abi) {
