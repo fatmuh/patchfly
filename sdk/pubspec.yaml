@@ -1,0 +1,39 @@
+name: patchfly
+description: Patchfly SDK — OTA updates for Flutter apps (Android first)
+version: 0.1.0
+homepage: https://patchfly.dev
+repository: https://github.com/yourname/patchfly
+
+environment:
+  sdk: ">=3.3.0 <4.0.0"
+  flutter: ">=3.19.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  http: ^1.1.0
+  path_provider: ^2.1.0
+  shared_preferences: ^2.2.0
+  crypto: ^3.0.3
+  ed25519_edwards: ^0.3.1
+  device_info_plus: ^10.0.0
+  package_info_plus: ^8.0.0
+  uuid: ^4.2.0
+  logging: ^1.2.0
+  archive: ^3.4.0
+  path: ^1.9.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  lints: ^3.0.0
+
+# Without this section, Flutter doesn't know this package has
+# native Android code. The pluginClass must match the
+# FlutterPlugin implementation in android/src/main/kotlin.
+flutter:
+  plugin:
+    platforms:
+      android:
+        package: dev.patchfly
+        pluginClass: PatchflyPlugin

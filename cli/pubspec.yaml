@@ -1,0 +1,22 @@
+name: patchfly
+description: Patchfly CLI — build & deploy OTA updates to Flutter apps
+version: 0.1.0
+publish_to: none
+
+environment:
+  sdk: ">=3.3.0 <4.0.0"
+
+dependencies:
+  args: ^2.4.0
+  http: ^1.1.0
+  path: ^1.9.0
+  crypto: ^3.0.3
+  yaml: ^3.1.2
+  cli_spinner: ^1.0.0
+  archive: ^3.4.0
+  file: ^7.0.0
+  uuid: ^4.2.0
+
+dev_dependencies:
+  test: ^1.24.0
+  lints: ^3.0.0

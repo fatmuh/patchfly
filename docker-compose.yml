@@ -1,0 +1,94 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-patchfly}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      POSTGRES_DB: ${POSTGRES_DB:-patchfly}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Optional: MinIO for local S3 testing. Enable by uncommenting.
+  # In production use a real S3 service (R2, B2, AWS S3, DO Spaces, etc).
+  minio:
+    image: minio/minio:latest
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}
+    volumes:
+      - minio_data:/data
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      PATCHFLY_ENV: ${PATCHFLY_ENV:-production}
+      PATCHFLY_HOST: 0.0.0.0
+      PATCHFLY_PORT: 8080
+      PATCHFLY_BASE_URL: ${PATCHFLY_BASE_URL}
+      DATABASE_URL: postgres://${POSTGRES_USER:-patchfly}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-patchfly}
+      DATABASE_SSL_MODE: disable
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
+      JWT_EXPIRY_HOURS: ${JWT_EXPIRY_HOURS:-720}
+      STORAGE_BACKEND: ${STORAGE_BACKEND:-s3}
+      STORAGE_PATH: /var/patchfly/storage
+      MAX_PATCH_SIZE_MB: ${MAX_PATCH_SIZE_MB:-200}
+      S3_BUCKET: ${S3_BUCKET:-patchfly-patches}
+      S3_ENDPOINT: ${S3_ENDPOINT:-http://minio:9000}
+      S3_REGION: ${S3_REGION:-us-east-1}
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY:-minioadmin}
+      S3_SECRET_KEY: ${S3_SECRET_KEY:-minioadmin}
+      S3_USE_SSL: ${S3_USE_SSL:-false}
+      S3_AUTO_CREATE_BUCKET: ${S3_AUTO_CREATE_BUCKET:-true}
+      S3_PUBLIC_URL: ${S3_PUBLIC_URL:-}
+      PATCH_SIGNING_PUBLIC_KEY: ${PATCH_SIGNING_PUBLIC_KEY}
+      PATCH_SIGNING_PRIVATE_KEY: ${PATCH_SIGNING_PRIVATE_KEY}
+      CORS_ORIGINS: ${CORS_ORIGINS:-*}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+    volumes:
+      - patchfly_storage:/var/patchfly/storage
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  nginx:
+    image: nginx:alpine
+    restart: unless-stopped
+    depends_on:
+      - server
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./docker/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./docker/certs:/etc/nginx/certs:ro
+    # In production, point a real domain here and use Dokploy's auto-TLS instead.
+
+volumes:
+  postgres_data:
+  minio_data:
+  patchfly_storage:

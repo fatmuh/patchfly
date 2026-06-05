@@ -1,0 +1,64 @@
+# Don't ship dev/test artifacts to the image
+.git
+.github
+.gitignore
+.dockerignore
+Dockerfile
+docker-compose.yml
+docker/
+
+# Dart/Flutter
+**/.dart_tool/
+**/build/
+**/.packages
+**/pubspec.lock
+**/*.iml
+
+# IDE
+.idea/
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Env
+.env
+.env.local
+**/.env
+
+# Storage (never commit patches)
+storage/
+*.so
+*.dylib
+*.a
+patches/
+
+# Logs
+*.log
+logs/
+
+# Certs
+**/*.pem
+**/*.key
+ssl/
+
+# Docs that aren't needed in image
+**/test/
+**/*.md
+**/docs/
+**/scripts/
+
+# Build outputs
+**/bin/*.exe
+**/bin/server
+**/bin/patchfly
+**/bin/patchfly.exe
+
+# Examples / samples
+sdk/example/
+sdk/example/.dart_tool/
+sdk/example/build/
+sdk/example/.flutter-plugins
+sdk/example/.flutter-plugins-dependencies
+sdk/example/pubspec.lock

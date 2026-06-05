@@ -1,0 +1,63 @@
+# Dependencies
+**/.dart_tool/
+**/.packages
+**/build/
+**/pubspec.lock
+
+# Compiled binaries — never commit these
+**/bin/*.exe
+**/bin/server
+**/bin/patchfly
+**/*.so
+**/*.dylib
+**/*.dll
+**/*.a
+**/*.dSYM/
+**/*.o
+**/*.obj
+
+# Flutter generated files (regenerated on `flutter pub get`)
+**/local.properties
+**/.flutter-plugins
+**/.flutter-plugins-dependencies
+**/android/app/src/main/java/io/flutter/plugins/GeneratedPluginRegistrant.java
+**/android/.gradle/
+**/android/captures/
+**/android/gradlew
+**/android/gradlew.bat
+**/android/gradle/wrapper/
+**/android/.idea/
+**/android/*.iml
+**/android/key.properties
+
+# IDE
+.idea/
+.vscode/
+*.iml
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Env (never commit secrets)
+.env
+.env.local
+**/.env
+
+# Storage (jangan commit snapshot asli)
+storage/
+patches/
+
+# Logs
+*.log
+logs/
+
+# Certs
+**/*.pem
+**/*.key
+ssl/
+
+
+# Debug artifacts
+ui_*.xml
+*.apk
