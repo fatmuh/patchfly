@@ -93,6 +93,7 @@ jobs:
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
+          repository: fatmuh/patchfly-cli-binaries
         with:
           name: ${{ github.ref_name }}
           generate_release_notes: true

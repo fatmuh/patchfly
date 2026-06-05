@@ -9,19 +9,19 @@ Push perubahan Dart code ke Flutter app yang sudah live di Play Store **tanpa** 
 ### macOS / Linux
 
 ```bash
-curl --proto '=https' --tlsv1.2 https://raw.githubusercontent.com/fatmuh/patchfly/main/install/install.sh -sSf | bash
+curl --proto '=https' --tlsv1.2 https://raw.githubusercontent.com/fatmuh/patchfly-install/main/install.sh -sSf | bash
 ```
 
 ### Windows (PowerShell)
 
 ```powershell
 Set-ExecutionPolicy RemoteSigned -scope CurrentUser
-iwr -UseBasicParsing 'https://raw.githubusercontent.com/fatmuh/patchfly/main/install/install.ps1'|iex
+iwr -UseBasicParsing 'https://raw.githubusercontent.com/fatmuh/patchfly-install/main/install.ps1'|iex
 ```
 
 Install location: `~/.patchfly/bin/patchfly` (Unix) atau `%USERPROFILE%\.patchfly\bin\patchfly.exe` (Windows).
 
-Lihat [`install/README.md`](install/README.md) untuk opsi lanjutan (versi spesifik, custom install path, dst).
+Lihat [`fatmuh/patchfly-install`](https://github.com/fatmuh/patchfly-install) untuk opsi lanjutan (versi spesifik, custom install path, dst).
 
 ## Kenapa Patchfly?
 
