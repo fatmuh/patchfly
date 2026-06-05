@@ -112,27 +112,37 @@ jobs:
       - name: Upload to S3 (versioned path)
         env:
           S3_BUCKET: ${{ vars.S3_BUCKET || 'patchfly-cli' }}
+          S3_PREFIX: ${{ vars.S3_PREFIX || '' }}
           S3_ENDPOINT: ${{ vars.S3_ENDPOINT }}
+          S3_PUBACL: ${{ vars.S3_PUBLIC_ACL || 'public-read' }}
           VERSION: ${{ steps.ver.outputs.version }}
         run: |
           set -e
-          # Build --endpoint-url flag for non-AWS S3 (R2, MinIO, B2, etc.)
+          # Build --endpoint-url flag for non-AWS S3 (R2, MinIO, B2, IDCloudHost, etc.)
           ENDPOINT_FLAG=""
           if [ -n "$S3_ENDPOINT" ]; then
             ENDPOINT_FLAG="--endpoint-url $S3_ENDPOINT"
           fi
 
-          echo "Uploading to s3://$S3_BUCKET/cli/$VERSION/ ..."
-          aws s3 cp dist/ "s3://$S3_BUCKET/cli/$VERSION/" \
+          # Normalize prefix (no leading/trailing slash, with trailing /)
+          PREFIX=""
+          if [ -n "$S3_PREFIX" ]; then
+            PREFIX="$(echo "$S3_PREFIX" | sed 's#^/##;s#/$##')/"
+          fi
+
+          echo "Uploading to s3://$S3_BUCKET/${PREFIX}cli/$VERSION/ ..."
+          aws s3 cp dist/ "s3://$S3_BUCKET/${PREFIX}cli/$VERSION/" \
             $ENDPOINT_FLAG \
             --recursive \
-            --acl public-read \
+            --acl "$S3_PUBACL" \
             --cache-control "public, max-age=3600"
 
       - name: Mirror to cli/latest/
         env:
           S3_BUCKET: ${{ vars.S3_BUCKET || 'patchfly-cli' }}
+          S3_PREFIX: ${{ vars.S3_PREFIX || '' }}
           S3_ENDPOINT: ${{ vars.S3_ENDPOINT }}
+          S3_PUBACL: ${{ vars.S3_PUBLIC_ACL || 'public-read' }}
           VERSION: ${{ steps.ver.outputs.version }}
         run: |
           set -e
@@ -141,32 +151,43 @@ jobs:
             ENDPOINT_FLAG="--endpoint-url $S3_ENDPOINT"
           fi
 
+          PREFIX=""
+          if [ -n "$S3_PREFIX" ]; then
+            PREFIX="$(echo "$S3_PREFIX" | sed 's#^/##;s#/$##')/"
+          fi
+
           # Delete old latest/ then re-upload (so it always points to the newest)
-          echo "Refreshing s3://$S3_BUCKET/cli/latest/ ..."
-          aws s3 rm "s3://$S3_BUCKET/cli/latest/" \
+          echo "Refreshing s3://$S3_BUCKET/${PREFIX}cli/latest/ ..."
+          aws s3 rm "s3://$S3_BUCKET/${PREFIX}cli/latest/" \
             $ENDPOINT_FLAG --recursive || true
           for f in dist/*; do
-            aws s3 cp "$f" "s3://$S3_BUCKET/cli/latest/$(basename $f)" \
+            aws s3 cp "$f" "s3://$S3_BUCKET/${PREFIX}cli/latest/$(basename $f)" \
               $ENDPOINT_FLAG \
-              --acl public-read \
+              --acl "$S3_PUBACL" \
               --cache-control "public, max-age=300"
           done
 
       - name: Summary
         env:
           S3_BUCKET: ${{ vars.S3_BUCKET || 'patchfly-cli' }}
+          S3_PREFIX: ${{ vars.S3_PREFIX || '' }}
           S3_PUBLIC_URL: ${{ vars.S3_PUBLIC_URL }}
           VERSION: ${{ steps.ver.outputs.version }}
         run: |
+          PREFIX=""
+          if [ -n "$S3_PREFIX" ]; then
+            PREFIX="$(echo "$S3_PREFIX" | sed 's#^/##;s#/$##')/"
+          fi
           echo ""
           echo "============================================"
           echo "  Published v$VERSION to S3"
           echo "============================================"
-          echo "Bucket: s3://$S3_BUCKET/cli/$VERSION/"
+          echo "Bucket: s3://$S3_BUCKET/${PREFIX}cli/$VERSION/"
           if [ -n "$S3_PUBLIC_URL" ]; then
             echo "Public URL: $S3_PUBLIC_URL/cli/$VERSION/"
             echo "Latest URL: $S3_PUBLIC_URL/cli/latest/"
           fi
+          echo "============================================"
           echo ""
           echo "Test install:"
           echo "  PATCHFLY_BINARY_URL='$S3_PUBLIC_URL' \\"
