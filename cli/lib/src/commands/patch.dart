@@ -46,6 +46,9 @@ class PatchCommand implements CommandRunner {
           'patchfly.yaml not found. Run `patchfly init` first.',
           hint: 'patchfly init');
     }
+    // The project root is wherever patchfly.yaml lives, NOT the current
+    // process CWD. The CLI may be invoked from anywhere.
+    final projectDir = configFile.parent.path;
     final yaml = loadYaml(await configFile.readAsString()) as YamlMap;
 
     // CLI flag --app overrides patchfly.yaml's app.slug
@@ -101,21 +104,30 @@ class PatchCommand implements CommandRunner {
     // 3. Build
     if (!(result['skip-build'] as bool)) {
       print('Building Flutter APK (release)...');
-      final buildRes = await Process.run('flutter', [
-        'build', 'apk',
-        '--release',
-        '--target-platform', _abiToPlatform(abi),
-      ]);
+      // On Windows, the flutter binary is flutter.bat. On other platforms
+      // it's just 'flutter' (the shell wrapper).
+      final flutterCmd = Platform.isWindows ? 'flutter.bat' : 'flutter';
+      // The build MUST run from the project directory (where pubspec.yaml
+      // and the Flutter project live), not from wherever the CLI is invoked.
+      final buildRes = await Process.run(
+        flutterCmd,
+        [
+          'build', 'apk',
+          '--release',
+          '--target-platform', _abiToPlatform(abi),
+        ],
+        workingDirectory: projectDir,
+      );
       if (buildRes.exitCode != 0) {
-        print(buildRes.stdout);
-        print(buildRes.stderr);
+        stdout.write(buildRes.stdout);
+        stderr.write(buildRes.stderr);
         throw CliException('flutter build failed');
       }
     } else {
       print('Skipping build, using existing APK');
     }
 
-    final absApk = p.isAbsolute(apkPath) ? apkPath : p.join(cwd.path, apkPath);
+    final absApk = p.isAbsolute(apkPath) ? apkPath : p.join(projectDir, apkPath);
     final apk = File(absApk);
     if (!await apk.exists()) {
       throw CliException('APK not found: $absApk');
