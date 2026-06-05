@@ -50,13 +50,24 @@ jobs:
         working-directory: cli
         run: dart pub get
 
+      - name: Install x64 Dart (for macos-x64 cross-build)
+        if: matrix.label == 'macos-x64'
+        # The dart-lang/setup-dart installs arm64 dart on macos-14 runner.
+        # To compile an x64 binary, we need the x64 dart SDK. Download it
+        # manually to /tmp/dart-sdk/ and run it via Rosetta 2.
+        run: |
+          echo "Downloading x64 Dart SDK..."
+          curl -fsSL https://storage.googleapis.com/dart-archive/channels/stable/release/latest/sdk/dartsdk-macos-x64-release.zip -o /tmp/dartsdk-x64.zip
+          unzip -q -o /tmp/dartsdk-x64.zip -d /tmp/
+          echo "Verifying x64 dart binary:"
+          file /tmp/dart-sdk/bin/dart
+          /tmp/dart-sdk/bin/dart --version
+
       - name: Build CLI
         working-directory: cli
-        # macos-13 (Intel) runner is deprecated. Use macos-14 (Apple Silicon)
-        # and cross-build x64 via Rosetta 2 (pre-installed on the runner).
         run: |
           if [ "${{ matrix.label }}" = "macos-x64" ]; then
-            arch -x86_64 dart compile exe bin/patchfly.dart -o ${{ matrix.asset }}
+            arch -x86_64 /tmp/dart-sdk/bin/dart compile exe bin/patchfly.dart -o ${{ matrix.asset }}
           else
             dart compile exe bin/patchfly.dart -o ${{ matrix.asset }}${{ matrix.os == 'windows-latest' && '.exe' || '' }}
           fi
