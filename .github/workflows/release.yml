@@ -103,11 +103,9 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           path: dist
-
-      - name: Flatten artifact dir
-        run: |
-          find dist -mindepth 2 -maxdepth 2 -type f -exec mv {} dist/ \;
-          ls -la dist/
+          # Merge-multiple puts all artifact files directly in dist/
+          # (no per-artifact subdirectories), so we don't need to flatten.
+          merge-multiple: true
 
       - name: Generate SHA-256 for all binaries
         # Done once on the publish job (Ubuntu) — avoids per-OS shell
@@ -117,19 +115,16 @@ jobs:
         #   dist/SHA256SUMS        (combined manifest)
         run: |
           cd dist
-          # Per-file .sha256 (format: "<hash>  <filename>" - two spaces, GNU coreutils style)
+          echo "=== Files in dist/ ==="
+          ls -la
+          echo ""
           for f in *; do
             [ -f "$f" ] || continue
             sha256sum "$f" > "$f.sha256"
           done
-          # Combined SHA256SUMS manifest (what most release pages expect)
           sha256sum * > SHA256SUMS
-          echo ""
           echo "=== Generated checksums ==="
           cat SHA256SUMS
-          echo ""
-          echo "=== Files in dist/ ==="
-          ls -la
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
