@@ -1,4 +1,4 @@
-name: Release CLI binaries
+name: Release CLI binaries to S3/R2
 
 on:
   push:
@@ -6,13 +6,12 @@ on:
       - 'v*'
   workflow_dispatch:
     inputs:
-      dry_run:
-        description: 'Build but do not publish a release'
+      version:
+        description: 'Version to release (e.g. 0.1.0). Defaults to tag name.'
         required: false
-        default: 'false'
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   build:
@@ -56,7 +55,6 @@ jobs:
         run: dart compile exe bin/patchfly.dart -o ${{ matrix.asset }}${{ matrix.os == 'windows-latest' && '.exe' || '' }}
 
       - name: Generate SHA-256
-        id: sha
         run: |
           if [ "$RUNNER_OS" = "Windows" ]; then
             $hash = (Get-FileHash -Algorithm SHA256 "${{ matrix.asset }}.exe").Hash.ToLower()
@@ -75,12 +73,25 @@ jobs:
             cli/${{ matrix.asset }}${{ matrix.os == 'windows-latest' && '.exe' || '' }}.sha256
           if-no-files-found: error
 
-  release:
-    name: Publish GitHub Release
+  publish:
+    name: Upload to S3/R2
     needs: build
-    if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     steps:
+      - name: Resolve version
+        id: ver
+        run: |
+          if [ -n "${{ inputs.version }}" ]; then
+            VERSION="${{ inputs.version }}"
+          elif [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+            VERSION="${GITHUB_REF_NAME#v}"
+          else
+            echo "::error::No version provided and no v* tag."
+            exit 1
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Publishing version: $VERSION"
+
       - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
@@ -91,22 +102,73 @@ jobs:
           find dist -mindepth 2 -maxdepth 2 -type f -exec mv {} dist/ \;
           ls -la dist/
 
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
         with:
-          repository: fatmuh/patchfly-cli-binaries
-          name: ${{ github.ref_name }}
-          generate_release_notes: true
-          files: |
-            dist/patchfly-linux-x64
-            dist/patchfly-linux-x64.sha256
-            dist/patchfly-linux-arm64
-            dist/patchfly-linux-arm64.sha256
-            dist/patchfly-macos-x64
-            dist/patchfly-macos-x64.sha256
-            dist/patchfly-macos-arm64
-            dist/patchfly-macos-arm64.sha256
-            dist/patchfly-windows-x64.exe
-            dist/patchfly-windows-x64.exe.sha256
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ vars.S3_REGION || 'auto' }}
+
+      - name: Upload to S3 (versioned path)
         env:
-          GITHUB_TOKEN: ${{ secrets.PATCHFLY_RELEASE_TOKEN }}
+          S3_BUCKET: ${{ vars.S3_BUCKET || 'patchfly-cli' }}
+          S3_ENDPOINT: ${{ vars.S3_ENDPOINT }}
+          VERSION: ${{ steps.ver.outputs.version }}
+        run: |
+          set -e
+          # Build --endpoint-url flag for non-AWS S3 (R2, MinIO, B2, etc.)
+          ENDPOINT_FLAG=""
+          if [ -n "$S3_ENDPOINT" ]; then
+            ENDPOINT_FLAG="--endpoint-url $S3_ENDPOINT"
+          fi
+
+          echo "Uploading to s3://$S3_BUCKET/cli/$VERSION/ ..."
+          aws s3 cp dist/ "s3://$S3_BUCKET/cli/$VERSION/" \
+            $ENDPOINT_FLAG \
+            --recursive \
+            --acl public-read \
+            --cache-control "public, max-age=3600"
+
+      - name: Mirror to cli/latest/
+        env:
+          S3_BUCKET: ${{ vars.S3_BUCKET || 'patchfly-cli' }}
+          S3_ENDPOINT: ${{ vars.S3_ENDPOINT }}
+          VERSION: ${{ steps.ver.outputs.version }}
+        run: |
+          set -e
+          ENDPOINT_FLAG=""
+          if [ -n "$S3_ENDPOINT" ]; then
+            ENDPOINT_FLAG="--endpoint-url $S3_ENDPOINT"
+          fi
+
+          # Delete old latest/ then re-upload (so it always points to the newest)
+          echo "Refreshing s3://$S3_BUCKET/cli/latest/ ..."
+          aws s3 rm "s3://$S3_BUCKET/cli/latest/" \
+            $ENDPOINT_FLAG --recursive || true
+          for f in dist/*; do
+            aws s3 cp "$f" "s3://$S3_BUCKET/cli/latest/$(basename $f)" \
+              $ENDPOINT_FLAG \
+              --acl public-read \
+              --cache-control "public, max-age=300"
+          done
+
+      - name: Summary
+        env:
+          S3_BUCKET: ${{ vars.S3_BUCKET || 'patchfly-cli' }}
+          S3_PUBLIC_URL: ${{ vars.S3_PUBLIC_URL }}
+          VERSION: ${{ steps.ver.outputs.version }}
+        run: |
+          echo ""
+          echo "============================================"
+          echo "  Published v$VERSION to S3"
+          echo "============================================"
+          echo "Bucket: s3://$S3_BUCKET/cli/$VERSION/"
+          if [ -n "$S3_PUBLIC_URL" ]; then
+            echo "Public URL: $S3_PUBLIC_URL/cli/$VERSION/"
+            echo "Latest URL: $S3_PUBLIC_URL/cli/latest/"
+          fi
+          echo ""
+          echo "Test install:"
+          echo "  PATCHFLY_BINARY_URL='$S3_PUBLIC_URL' \\"
+          echo "    curl -sSf https://raw.githubusercontent.com/fatmuh/patchfly-install/main/install.sh | bash"
+          echo "============================================"
