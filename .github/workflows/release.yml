@@ -55,13 +55,12 @@ jobs:
         run: dart compile exe bin/patchfly.dart -o ${{ matrix.asset }}${{ matrix.os == 'windows-latest' && '.exe' || '' }}
 
       - name: Generate SHA-256
+        working-directory: cli
+        # Use shasum (works on macOS, Linux, and Git Bash on Windows).
+        # Avoid mixing PowerShell into shell: bash — it breaks parsing.
         run: |
-          if [ "$RUNNER_OS" = "Windows" ]; then
-            $hash = (Get-FileHash -Algorithm SHA256 "${{ matrix.asset }}.exe").Hash.ToLower()
-            "$hash  ${{ matrix.asset }}.exe" | Out-File -FilePath "${{ matrix.asset }}.exe.sha256" -Encoding ASCII
-          else
-            shasum -a 256 "${{ matrix.asset }}" > "${{ matrix.asset }}.sha256"
-          fi
+          EXE="${{ matrix.os == 'windows-latest' && '.exe' || '' }}"
+          shasum -a 256 "${{ matrix.asset }}$EXE" > "${{ matrix.asset }}$EXE.sha256"
         shell: bash
 
       - name: Upload build artifacts
