@@ -109,6 +109,12 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ vars.S3_REGION || 'auto' }}
 
+      - name: Configure AWS CLI signature version
+        # IDCloudHost S3 requires legacy 's3' (SigV2) for object uploads.
+        # Modern 's3v4' returns 'MissingContentLength' error.
+        # For R2/AWS S3/MinIO, this is a no-op (v4 is default elsewhere).
+        run: aws configure set default.s3.signature_version s3
+
       - name: Upload to S3 (versioned path)
         env:
           S3_BUCKET: ${{ vars.S3_BUCKET || 'patchfly-cli' }}
