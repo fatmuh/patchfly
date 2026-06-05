@@ -166,12 +166,15 @@ jobs:
             PREFIX="$(echo "$S3_PREFIX" | sed 's#^/##;s#/$##')/"
           fi
 
+          # Per-file upload: 'aws s3 cp --recursive' on IDCloudHost doesn't
+          # apply --acl to each object, leaving them private. Iterate manually.
           echo "Uploading to s3://$S3_BUCKET/${PREFIX}cli/$VERSION/ ..."
-          aws s3 cp dist/ "s3://$S3_BUCKET/${PREFIX}cli/$VERSION/" \
-            $ENDPOINT_FLAG \
-            --recursive \
-            --acl "$S3_PUBACL" \
-            --cache-control "public, max-age=3600"
+          for f in dist/*; do
+            aws s3 cp "$f" "s3://$S3_BUCKET/${PREFIX}cli/$VERSION/$(basename $f)" \
+              $ENDPOINT_FLAG \
+              --acl "$S3_PUBACL" \
+              --cache-control "public, max-age=3600"
+          done
 
       - name: Mirror to cli/latest/
         env:
