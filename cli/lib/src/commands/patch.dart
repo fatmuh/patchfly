@@ -26,6 +26,7 @@ class PatchCommand implements CommandRunner {
   Future<void> run(List<String> args) async {
     final parser = ArgParser()
       ..addOption('config', defaultsTo: 'patchfly.yaml', help: 'Path to patchfly.yaml')
+      ..addOption('app', help: 'App slug (overrides app.slug in patchfly.yaml)')
       ..addOption('release', help: 'Specific release ID (default: latest active)')
       ..addOption('abi', help: 'Target ABI (arm64-v8a, armeabi-v7a, x86_64)')
       ..addOption('channel', help: 'Channel to patch (stable/beta/...)')
@@ -47,9 +48,12 @@ class PatchCommand implements CommandRunner {
     }
     final yaml = loadYaml(await configFile.readAsString()) as YamlMap;
 
-    final appSlug = yaml['app']?['slug'] as String?;
+    // CLI flag --app overrides patchfly.yaml's app.slug
+    final appSlug = (result['app'] as String?) ??
+        (yaml['app']?['slug'] as String?);
     if (appSlug == null || appSlug == '<your-app-slug>') {
-      throw CliException('app.slug is not set in patchfly.yaml');
+      throw CliException(
+          'No app specified. Either set app.slug in patchfly.yaml or pass --app <slug>');
     }
     final defaults = yaml['defaults'] as YamlMap?;
     final build = yaml['build'] as YamlMap?;
