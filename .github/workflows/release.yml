@@ -88,10 +88,13 @@ jobs:
       - name: Resolve version
         id: ver
         run: |
+          # VERSION is the FULL path segment including 'v' prefix
+          # (e.g. v0.0.1). This matches install scripts which build
+          # download URLs as cli/v${VERSION}/...
           if [ -n "${{ inputs.version }}" ]; then
-            VERSION="${{ inputs.version }}"
+            VERSION="v${{ inputs.version }}"
           elif [[ "${{ github.ref }}" == refs/tags/v* ]]; then
-            VERSION="${GITHUB_REF_NAME#v}"
+            VERSION="$GITHUB_REF_NAME"
           else
             echo "::error::No version provided and no v* tag."
             exit 1
