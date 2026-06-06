@@ -1,6 +1,8 @@
 # Patchfly
 
-**Code push / OTA update server untuk Flutter** — self-hosted, komersial, alternatif Shorebird.
+**Code push / OTA update server untuk Flutter** — managed cloud service, alternatif Shorebird.
+
+> **Upstream:** Patchfly is a fork of [Shorebird](https://github.com/shorebirdtech/shorebird) by Shorebird Labs, Inc. The entire server, CLI, and SDK are derived from Shorebird's codebase, distributed under the same dual MIT + Apache 2.0 license. See [License](#license) below.
 
 Push perubahan Dart code ke Flutter app yang sudah live di Play Store **tanpa** rilis APK baru.
 
@@ -98,4 +100,20 @@ Lihat [`docs/QUICKSTART.md`](docs/QUICKSTART.md) untuk langkah detail.
 
 ## Lisensi
 
-Proprietary / TBD (komersial). Hubungi owner untuk lisensi.
+This project is a derivative work of [Shorebird](https://github.com/shorebirdtech/shorebird) and is distributed under the same dual license:
+
+- **[MIT License](LICENSE-MIT)** — Copyright (c) 2024 Shorebird Labs, Inc. and Patchfly contributors
+- **[Apache License 2.0](LICENSE-APACHE)** — Copyright (c) 2024 Shorebird Labs, Inc. and Patchfly contributors
+
+You may use, modify, and distribute Patchfly under either license, at your option. The full upstream Shorebird license texts and copyright notices are preserved verbatim in `LICENSE-MIT` and `LICENSE-APACHE`. A summary of the changes from upstream is in [`NOTICE`](NOTICE).
+
+The original Shorebird project lives at <https://github.com/shorebirdtech/shorebird> and is Copyright Shorebird Labs, Inc. and its contributors. Patchfly is not affiliated with, endorsed by, or sponsored by Shorebird Labs, Inc.
+
+If you distribute Patchfly (or a modified version of it) in source or binary form, you must:
+
+1. Retain `LICENSE-MIT` and `LICENSE-APACHE` from this repository.
+2. Retain the upstream Shorebird copyright notice in every source file that was adapted from Shorebird.
+3. Include a copy of the [`NOTICE`](NOTICE) file with any substantial distribution.
+4. Mark any modified files (per Apache 2.0 Section 4(b)).
+
+Commercial licensing, dual-licensing, or relicensing requests: <fatmuhdev@gmail.com>.
