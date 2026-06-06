@@ -82,6 +82,9 @@ jobs:
 
       - name: Build CLI
         working-directory: cli
+        env:
+          VERSION: ${{ steps.ver.outputs.version }}
+        shell: bash
         run: |
           # Strip the 'v' prefix for the dart compile define
           DART_VERSION="${VERSION#v}"
@@ -91,7 +94,6 @@ jobs:
           else
             dart compile exe --define=VERSION=$DART_VERSION bin/patchfly.dart -o ${{ matrix.asset }}${{ matrix.os == 'windows-latest' && '.exe' || '' }}
           fi
-        shell: bash
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
