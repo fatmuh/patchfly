@@ -94,6 +94,9 @@ jobs:
           else
             dart compile exe --define=VERSION=$DART_VERSION bin/patchfly.dart -o ${{ matrix.asset }}${{ matrix.os == 'windows-latest' && '.exe' || '' }}
           fi
+          # Debug: confirm the version got embedded
+          echo "Binary size: $(wc -c < ${{ matrix.asset }}${{ matrix.os == 'windows-latest' && '.exe' || '' }})"
+          strings ${{ matrix.asset }}${{ matrix.os == 'windows-latest' && '.exe' || '' }} 2>/dev/null | grep -E '^patchfly ' | head -3 || true
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
