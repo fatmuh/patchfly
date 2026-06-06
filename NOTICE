@@ -1,0 +1,108 @@
+Patchfly
+Copyright 2024 Patchfly contributors
+
+This product includes software developed at
+Patchfly (https://github.com/fatmuh/patchfly) and is a fork of
+Shorebird (https://github.com/shorebirdtech/shorebird), which is
+Copyright Shorebird Labs, Inc. and distributed under the same
+MIT + Apache 2.0 dual license.
+
+================================================================================
+UPSTREAM
+================================================================================
+
+Shorebird
+  Source:   https://github.com/shorebirdtech/shorebird
+  License:  Dual MIT + Apache 2.0
+  Authors:  Shorebird Labs, Inc. and the Shorebird contributor list
+            (https://github.com/shorebirdtech/shorebird/graphs/contributors)
+
+Patchfly began as a fork of Shorebird. The original Shorebird
+license texts are preserved verbatim in this repository as
+LICENSE-MIT and LICENSE-APACHE. Per the terms of those licenses,
+this NOTICE file documents the upstream attribution.
+
+================================================================================
+CHANGES FROM UPSTREAM
+================================================================================
+
+Patchfly is a derivative work of Shorebird with the following
+categories of change:
+
+1. Rebrand
+   - Project name "Shorebird" → "Patchfly" across CLI, SDK, server,
+     docs site, and all user-facing strings.
+   - Command-line binary "shorebird" → "patchfly".
+   - Default CDN endpoint, SDK key format, package name, etc.
+
+2. Distribution
+   - Default install path no longer assumes a vendor-managed CDN;
+     install scripts point at https://cdn.patchfly.dev by default.
+   - One-line installer scripts ship in a dedicated public repo
+     (fatmuh/patchfly-install).
+
+3. Server
+   - Hardened `_downloadUrl()` helper to avoid the well-known
+     "localhost:8080" bug that leaked into production responses
+     (server commit e647b2b). All six download endpoints now route
+     through a single resolver that consults the active storage
+     backend and falls back to environment-driven defaults.
+   - `PULTFLUT_*` environment variables retained as a fallback for
+     the rebrand period; new `PATCHFLY_*` variables are canonical.
+
+4. CLI
+   - `patches promote` introduced as the canonical patch-management
+     command, with `promote` retained as a deprecation alias.
+   - Build-time version injection via Dart's `String.fromEnvironment`
+     with `--dart-define=VERSION=...` so the compiled binary reports
+     the exact version that was released.
+   - 13 commands total, each with a full --help, error hints, and
+     non-interactive flags suited for CI.
+
+5. SDK
+   - Public sample (fatmuh/patchfly-sample) ships with the SDK
+     stubbed behind the same Dart API; a one-import swap
+     (`import 'package:patchfly/patchfly.dart';`) is the only
+     change required to go from stub to real.
+
+6. Native engine
+   - Rust updater (fatmuh/patchfly-updater) builds against
+     `bsdiff`/`bzip2` for the patch delta. ABI filters, ProGuard
+     rules, and NDK version pinned in CI.
+
+7. Documentation
+   - Hosted at https://docs.patchfly.dev (separate from the
+     product site at https://patchfly.dev). The docs site
+     (fatmuh/patchfly-web) is itself a Next.js 16 + Fumadocs 16
+     project, force-pushed on rebuild; the previous Astro 5
+     docs are not preserved.
+   - All self-hosting content removed as part of the
+     repositioning to managed-cloud-only.
+
+================================================================================
+THIRD-PARTY DEPENDENCIES
+================================================================================
+
+Patchfly's runtime dependencies retain their own licenses and
+copyrights. See the language-specific lockfiles for the canonical
+list:
+
+  - Dart / Flutter: pubspec.lock, pubspec.yaml
+  - Rust:           Cargo.lock
+  - Node.js:        package-lock.json
+
+A non-exhaustive list of major dependencies and their licenses:
+
+  Rust:    bsdiff, bzip2, libc (MIT/Apache 2.0/BSD)
+  Dart:    shelf, args, path, crypto, http (BSD-3-Clause / MIT)
+  Node:    next, react, fumadocs-core, fumadocs-ui, tailwindcss (MIT)
+
+================================================================================
+CONTACT
+================================================================================
+
+Project lead:   Fathur Muhammad <fatmuhdev@gmail.com>
+Repository:     https://github.com/fatmuh/patchfly
+Issues:         https://github.com/fatmuh/patchfly/issues
+
+Upstream project: https://github.com/shorebirdtech/shorebird
