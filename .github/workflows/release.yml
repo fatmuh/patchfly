@@ -87,20 +87,13 @@ jobs:
         shell: bash
         run: |
           # Strip the 'v' prefix for the dart compile define.
-          # This MUST match the tag (e.g. tag v0.1.0 → --define=VERSION=0.1.0)
-          # so the binary's reported version matches the release.
+          # Tag v0.1.0 → --define=VERSION=0.1.0
           DART_VERSION="${VERSION#v}"
-          echo "DART_VERSION=[$DART_VERSION] (env VERSION was [$VERSION])"
           if [ "${{ matrix.label }}" = "macos-x64" ]; then
             arch -x86_64 /tmp/dart-sdk/bin/dart compile exe --define=VERSION=$DART_VERSION bin/patchfly.dart -o ${{ matrix.asset }}
           else
             dart compile exe --define=VERSION=$DART_VERSION bin/patchfly.dart -o ${{ matrix.asset }}${{ matrix.os == 'windows-latest' && '.exe' || '' }}
           fi
-          # Debug: confirm the version got embedded
-          BINARY="${{ matrix.asset }}${{ matrix.os == 'windows-latest' && '.exe' || '' }}"
-          echo "Binary size: $(wc -c < $BINARY)"
-          echo "--- strings | grep 'patchfly 0' (first 5) ---"
-          strings "$BINARY" 2>/dev/null | grep 'patchfly 0' | head -5 || echo "(no matches)"
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4

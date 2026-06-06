@@ -1,6 +1,6 @@
 name: patchfly
 description: Patchfly CLI — build & deploy OTA updates to Flutter apps
-version: 0.1.0
+version: 0.1.1
 publish_to: none
 
 environment:
