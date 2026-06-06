@@ -15,7 +15,11 @@ import 'commands/promote.dart';
 import 'commands/rollout.dart';
 import 'commands/doctor.dart';
 
-const String version = '0.1.0';
+// Version is injected at compile time via:
+//   dart compile exe --define=VERSION=0.0.2 bin/patchfly.dart
+// The workflow passes the git tag (without 'v' prefix) automatically.
+// Falls back to pubspec version for local dev builds.
+const String version = String.fromEnvironment('VERSION', defaultValue: '0.1.0-dev');
 
 Future<void> runCli(List<String> args) async {
   final parser = ArgParser()
