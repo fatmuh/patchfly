@@ -131,12 +131,15 @@ adb shell lsof -p $(adb shell pidof com.your.app) | grep libapp.so
 
 ## iOS
 
-Not possible. App Store rules prohibit downloading and executing code outside the app bundle. There is no technical workaround for AOT-compiled Flutter on iOS.
+iOS support is now available with the same architecture and the same limitation (requires engine fork for AOT code patching). See [IOS_INTEGRATION.md](./IOS_INTEGRATION.md) for the full guide.
 
-For iOS:
-- Use TestFlight for staged rollouts
-- Ship a new build for hot-fixes (1-2 day review)
-- Use remote config for runtime feature flags
+**Status summary:**
+- ✅ SDK check/download/apply — works (Swift native plugin + Rust updater)
+- ✅ CLI `--platform ios` — works (init, patch, doctor)
+- ✅ Server — platform-aware storage (no forced .so extension)
+- ❌ Engine loading patched snapshot — requires custom Flutter engine fork (same as Android)
+
+**App Store considerations:** Apple's §2.5.2 guideline restricts downloading executable code. Asset-only patching (images, JSON, config) works without concerns. AOT code patching may require legal review for your use case.
 
 ## Reference: APK structure
 

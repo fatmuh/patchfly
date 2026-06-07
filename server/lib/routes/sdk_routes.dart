@@ -148,7 +148,7 @@ class SdkRoutes {
         'content-type': 'application/octet-stream',
         'content-length': p.fileSizeBytes.toString(),
         'content-disposition':
-            'attachment; filename="patch_${p.patchNumber}.so"',
+            'attachment; filename="patch_${p.patchNumber}${p.filePath.contains('.') ? '.${p.filePath.split('.').last}' : ''}"',
         'x-patchfly-sha256': p.sha256Hash,
         'x-patchfly-signature': p.signature,
         'x-patchfly-patch-number': p.patchNumber.toString(),

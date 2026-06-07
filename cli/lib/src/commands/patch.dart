@@ -1,10 +1,14 @@
 // `patchfly patch` — build a patch and upload it.
 //
 // Strategy:
-//   1. Run `flutter build apk --release` to build the APK
-//   2. Extract libapp.so from the APK
-//   3. Hash it, upload to server
-//   4. The user has the patch live for that release
+//   Android:
+//     1. Run `flutter build apk --release` to build the APK
+//     2. Extract libapp.so from the APK
+//     3. Hash it, upload to server
+//   iOS:
+//     1. Run `flutter build ios --release --no-codesign` to build the IPA artefacts
+//     2. Extract App binary from App.framework
+//     3. Hash it, upload to server
 
 import 'dart:io';
 import 'package:args/args.dart';
@@ -31,16 +35,20 @@ class PatchCommand implements CommandRunner {
 
     final parser = ArgParser()
       ..addFlag('help', abbr: 'h', negatable: false)
+      ..addOption('platform',
+          allowed: ['android', 'ios'],
+          defaultsTo: 'android',
+          help: 'Target platform (android or ios)')
       ..addOption('config', defaultsTo: 'patchfly.yaml', help: 'Path to patchfly.yaml')
       ..addOption('app', help: 'App slug (overrides app.slug in patchfly.yaml)')
       ..addOption('release', help: 'Specific release ID (default: latest active)')
-      ..addOption('abi', help: 'Target ABI (arm64-v8a, armeabi-v7a, x86_64)')
+      ..addOption('abi', help: 'Target ABI (arm64-v8a, armeabi-v7a, x86_64). Android only.')
       ..addOption('channel', help: 'Channel to patch (stable/beta/...)')
       ..addOption('rollout',
           help: 'Rollout percent (0-100). Default: 100 (full)')
       ..addOption('min-app-version', help: 'Min app version required to receive this patch')
       ..addOption('max-app-version')
-      ..addFlag('skip-build', help: 'Skip `flutter build`, use existing APK')
+      ..addFlag('skip-build', help: 'Skip `flutter build`, use existing build output')
       ..addFlag('dry-run', help: 'Compute everything but do not upload')
       ..addFlag('no-activate', negatable: false, help: 'Upload but don\'t activate');
     final result = parser.parse(args);
@@ -68,12 +76,9 @@ class PatchCommand implements CommandRunner {
       throw CliException(
           'No app specified. Either set app.slug in patchfly.yaml or pass --app <slug>');
     }
+    final platform = result['platform'] as String;
     final defaults = yaml['defaults'] as YamlMap?;
     final build = yaml['build'] as YamlMap?;
-    final apkPath = build?['apk_path'] as String?;
-    if (apkPath == null) {
-      throw CliException('build.apk_path is not set in patchfly.yaml');
-    }
 
     final channel = (result['channel'] as String?) ??
         (defaults?['channel'] as String? ?? 'stable');
@@ -112,57 +117,93 @@ class PatchCommand implements CommandRunner {
     }
 
     // 3. Build
+    final flutterCmd = Platform.isWindows ? 'flutter.bat' : 'flutter';
     if (!(result['skip-build'] as bool)) {
-      print('Building Flutter APK (release)...');
-      // On Windows, the flutter binary is flutter.bat. On other platforms
-      // it's just 'flutter' (the shell wrapper).
-      final flutterCmd = Platform.isWindows ? 'flutter.bat' : 'flutter';
-      // The build MUST run from the project directory (where pubspec.yaml
-      // and the Flutter project live), not from wherever the CLI is invoked.
-      final buildRes = await Process.run(
-        flutterCmd,
-        [
-          'build', 'apk',
-          '--release',
-          '--target-platform', _abiToPlatform(abi),
-        ],
-        workingDirectory: projectDir,
-      );
-      if (buildRes.exitCode != 0) {
-        stdout.write(buildRes.stdout);
-        stderr.write(buildRes.stderr);
-        throw CliException('flutter build failed');
+      if (platform == 'ios') {
+        print('Building Flutter iOS (release, no-codesign)...');
+        final buildRes = await Process.run(
+          flutterCmd,
+          ['build', 'ios', '--release', '--no-codesign'],
+          workingDirectory: projectDir,
+        );
+        if (buildRes.exitCode != 0) {
+          stdout.write(buildRes.stdout);
+          stderr.write(buildRes.stderr);
+          throw CliException('flutter build ios failed');
+        }
+      } else {
+        print('Building Flutter APK (release)...');
+        // The build MUST run from the project directory (where pubspec.yaml
+        // and the Flutter project live), not from wherever the CLI is invoked.
+        final buildRes = await Process.run(
+          flutterCmd,
+          [
+            'build', 'apk',
+            '--release',
+            '--target-platform', _abiToPlatform(abi),
+          ],
+          workingDirectory: projectDir,
+        );
+        if (buildRes.exitCode != 0) {
+          stdout.write(buildRes.stdout);
+          stderr.write(buildRes.stderr);
+          throw CliException('flutter build failed');
+        }
       }
     } else {
-      print('Skipping build, using existing APK');
+      print('Skipping build, using existing build output');
     }
 
-    final absApk = p.isAbsolute(apkPath) ? apkPath : p.join(projectDir, apkPath);
-    final apk = File(absApk);
-    if (!await apk.exists()) {
-      throw CliException('APK not found: $absApk');
-    }
-
-    // 4. Extract libapp.so from APK (it's a zip)
+    // 4. Extract the compiled binary
     final extractDir = await Directory.systemTemp.createTemp('patchfly_patch_');
-    print('Extracting libapp.so for $abi...');
-    final libapp = await _extractLibAppSo(apk, abi, extractDir);
-    final libappSize = await libapp.length();
+    late File patchFile;
+
+    if (platform == 'ios') {
+      // iOS: extract App binary from App.framework
+      final iosAppPath = build?['ios_app_path'] as String?;
+      if (iosAppPath != null && (result['skip-build'] as bool)) {
+        // Use configured path directly
+        final absPath = p.isAbsolute(iosAppPath) ? iosAppPath : p.join(projectDir, iosAppPath);
+        patchFile = File(absPath);
+        if (!await patchFile.exists()) {
+          throw CliException('iOS App binary not found: $absPath');
+        }
+      } else {
+        print('Extracting App binary from iOS build...');
+        patchFile = await _extractIosApp(Directory(projectDir), extractDir);
+      }
+    } else {
+      // Android: extract libapp.so from APK
+      final apkPath = build?['apk_path'] as String?;
+      if (apkPath == null) {
+        throw CliException('build.apk_path is not set in patchfly.yaml');
+      }
+      final absApk = p.isAbsolute(apkPath) ? apkPath : p.join(projectDir, apkPath);
+      final apk = File(absApk);
+      if (!await apk.exists()) {
+        throw CliException('APK not found: $absApk');
+      }
+      print('Extracting libapp.so for $abi...');
+      patchFile = await _extractLibAppSo(apk, abi, extractDir);
+    }
+
+    final patchSize = await patchFile.length();
 
     // 5. Hash
-    final hash = sha256.convert(await libapp.readAsBytes()).toString();
-    print('libapp.so: ${_formatBytes(libappSize)}, sha256=$hash');
+    final hash = sha256.convert(await patchFile.readAsBytes()).toString();
+    final label = platform == 'ios' ? 'App' : 'libapp.so';
+    print('$label: ${_formatBytes(patchSize)}, sha256=$hash');
 
     // 6. Upload
     if (result['dry-run'] as bool) {
-      print('Dry run: would upload $absApk → $libapp (${_formatBytes(libappSize)})');
+      print('Dry run: would upload $label (${_formatBytes(patchSize)})');
       return;
     }
 
     print('Uploading patch...');
     final res = await api.uploadMultipart(
       '/api/v1/releases/$releaseId/patches',
-      file: libapp,
+      file: patchFile,
       fieldName: 'file',
       sha256: hash,
       rolloutPercent: int.tryParse((result['rollout'] as String?) ?? ''),
@@ -188,30 +229,40 @@ Usage:
   patchfly patch [options]
 
 Options:
-      --config <path>        Path to patchfly.yaml (default: ./patchfly.yaml)
-  -a, --app <slug>           App slug (overrides app.slug in yaml)
-      --release <id>         Specific release ID (default: latest active)
-      --abi <name>           Target ABI: arm64-v8a | armeabi-v7a | x86_64
-      --channel <name>       Channel to patch: stable | beta | internal | alpha
-      --rollout <0-100>      Rollout percent (default: 100 = full)
+      --platform <name>    Target platform: android | ios (default: android)
+      --config <path>      Path to patchfly.yaml (default: ./patchfly.yaml)
+  -a, --app <slug>         App slug (overrides app.slug in yaml)
+      --release <id>       Specific release ID (default: latest active)
+      --abi <name>         Target ABI: arm64-v8a | armeabi-v7a | x86_64 (Android only)
+      --channel <name>     Channel to patch: stable | beta | internal | alpha
+      --rollout <0-100>    Rollout percent (default: 100 = full)
       --min-app-version <v>  Only deliver to apps with version >= this
       --max-app-version <v>  Only deliver to apps with version <= this
-      --skip-build            Skip `flutter build`, use existing APK
-      --dry-run               Build, but don't upload
-      --no-activate           Upload but don't activate (use `patches promote`)
-  -h, --help                  Show this help
+      --skip-build          Skip `flutter build`, use existing build output
+      --dry-run             Build, but don't upload
+      --no-activate         Upload but don't activate (use `patches promote`)
+  -h, --help                Show this help
 
-What it does:
+What it does (Android):
   1. Run `flutter build apk --release` (or use existing APK with --skip-build)
   2. Extract libapp.so from the APK
   3. Hash it, upload to server
   4. Activate it (unless --no-activate)
 
+What it does (iOS):
+  1. Run `flutter build ios --release --no-codesign` (or use existing with --skip-build)
+  2. Extract App binary from App.framework
+  3. Hash it, upload to server
+  4. Activate it (unless --no-activate)
+
 Examples:
-  # Default: build + upload + activate
+  # Android: default build + upload + activate
   patchfly patch --app com.example.test
 
-  # Build for a different ABI
+  # iOS: build + upload + activate
+  patchfly patch --platform ios --app com.example.test
+
+  # Build for a different ABI (Android only)
   patchfly patch --app com.example.test --abi x86_64
 
   # Staged rollout (start at 25%)
@@ -221,7 +272,7 @@ Examples:
   patchfly patch --app com.example.test --no-activate
   patchfly patches promote 1 --app com.example.test   # activate later
 
-  # Use an existing APK (no rebuild)
+  # Use an existing build (no rebuild)
   patchfly patch --app com.example.test --skip-build
 
   # Dry run (verify config without uploading)
@@ -239,6 +290,19 @@ Examples:
         return 'android-x64';
     }
     return 'android-arm64';
+  }
+
+  Future<File> _extractIosApp(Directory projectDir, Directory dest) async {
+    // iOS build output: build/ios/iphoneos/Runner.app/Frameworks/App.framework/App
+    final appBinary = File(p.join(projectDir.path,
+        'build/ios/iphoneos/Runner.app/Frameworks/App.framework/App'));
+    if (!await appBinary.exists()) {
+      throw CliException(
+          'App.framework/App not found. Run `flutter build ios --release --no-codesign` first.');
+    }
+    final destFile = File(p.join(dest.path, 'App'));
+    await appBinary.copy(destFile.path);
+    return destFile;
   }
 
   Future<File> _extractLibAppSo(

@@ -202,7 +202,7 @@ class Patchfly {
     final patchesDir = Directory('${dir.path}/patchfly/patches');
     await patchesDir.create(recursive: true);
     final file = File(
-      '${patchesDir.path}/patch_${update.patchNumber}_${update.sha256.substring(0, 8)}.so',
+      '${patchesDir.path}/patch_${update.patchNumber}_${update.sha256.substring(0, 8)}${_patchFileExtension()}',
     );
     await file.writeAsBytes(bytes, flush: true);
 
@@ -245,7 +245,7 @@ class Patchfly {
       throw PatchflyApplyException('Platform apply failed: ${e.message}');
     } on MissingPluginException {
       throw PatchflyApplyException(
-          'No Patchfly platform integration. See docs/ANDROID_INTEGRATION.md');
+          'No Patchfly platform integration. See docs/ANDROID_INTEGRATION.md or docs/IOS_INTEGRATION.md');
     }
   }
 
@@ -353,6 +353,13 @@ class Patchfly {
     if (Platform.isIOS) return 'ios';
     return 'unknown';
   }
+
+  /// Returns the file extension used for patches on the current platform.
+  String _patchFileExtension() {
+    if (Platform.isIOS) return '.patchfly';
+    return '.so';
+  }
+
 
   bool _verifySignature({
     required String messageHash,

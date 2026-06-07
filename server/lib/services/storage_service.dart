@@ -88,8 +88,7 @@ class LocalStorageService implements StorageService {
     required int patchNumber,
   }) async {
     final shaPrefix = sha256.substring(0, 8);
-    final ext =
-        p.extension(file.path).isEmpty ? '.so' : p.extension(file.path);
+    final ext = p.extension(file.path).isNotEmpty ? p.extension(file.path) : '';
     final fileName = '${patchNumber}_$shaPrefix$ext';
     final key = p.join(releaseId, fileName);
     final dest = File(p.join(root, key));
@@ -190,8 +189,7 @@ class S3StorageService implements StorageService {
     required int patchNumber,
   }) async {
     final shaPrefix = sha256.substring(0, 8);
-    final ext =
-        p.extension(file.path).isEmpty ? '.so' : p.extension(file.path);
+    final ext = p.extension(file.path).isNotEmpty ? p.extension(file.path) : '';
     final fileName = '${patchNumber}_$shaPrefix$ext';
     final key = p.join(releaseId, fileName);
 

@@ -144,9 +144,37 @@ If the SDK has previously downloaded a patch, the path is available:
 final path = Patchfly.instance.localPatchPath;
 ```
 
-The app's host code (in `MainActivity`) reads this on next launch to
-decide which `libapp.so` to `dlopen()`. You don't usually need to
-touch this directly.
+The app's host code reads this on next launch to decide which binary to load.
+On Android, `MainActivity` uses it to decide which `libapp.so` to `dlopen()`.
+On iOS, `PatchflyAppDelegate` and `PatchflyFlutterViewController` use it to
+determine the active patch path. You don't usually need to touch this directly.
+
+## Platform-specific setup
+
+### Android
+
+The Android native plugin is automatically registered via Flutter's plugin system.
+The key integration points are:
+
+- **`PatchflyApplication.kt`** — Subclass this in your app's `Application` class
+  to handle patch staging and verification on cold start.
+- **`MainActivity`** — No changes needed if using the default setup.
+
+For full details, see [Android Integration](ANDROID_INTEGRATION.md).
+
+### iOS
+
+iOS requires manual setup in your Xcode project:
+
+1. **AppDelegate.swift** — Replace the default Flutter `AppDelegate` with
+   `PatchflyAppDelegate` and call `PatchflyAppDelegate.configure()` in
+   `didFinishLaunchingWithOptions`.
+2. **FlutterViewController** — Use `PatchflyFlutterViewController` instead of
+   the standard `FlutterViewController` in your storyboard or programmatic setup.
+3. **Native updater xcframework** — Build and link the Rust `patchfly_updater`
+   xcframework (see [iOS Integration](IOS_INTEGRATION.md) for build steps).
+
+For full details, see [iOS Integration](IOS_INTEGRATION.md).
 
 ## Custom server URL (testing)
 

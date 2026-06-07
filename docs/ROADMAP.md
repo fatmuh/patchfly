@@ -22,7 +22,7 @@ What works today, what's next.
 
 - [ ] Android `dlopen()` mechanism (needs custom Gradle plugin)
 - [ ] Admin dashboard (web UI for the server)
-- [ ] iOS support (later)
+- [ ] iOS support (SDK + CLI done, engine fork pending)
 
 ## 📋 Next (post-MVP)
 
@@ -44,9 +44,13 @@ What works today, what's next.
 - [ ] Self-serve signup
 
 ### iOS
-- [ ] Investigate App Store rules around code push
-- [ ] Explore JIT-disabled interpreter mode
-- [ ] Native `dylib` patching (very tricky)
+- [x] SDK iOS native plugin (Swift — MethodChannel handler, AppDelegate, FlutterViewController)
+- [x] CLI iOS support (--platform flag in init, patch, doctor)
+- [x] Server platform-aware storage (no forced .so extension)
+- [x] Rust native updater iOS support (Mach-O verification, oslog, xcframework build)
+- [x] Bridging header for Rust C API → Swift
+- [ ] Custom Flutter engine fork for snapshot redirection (same challenge as Android)
+- [ ] iOS code signing workaround (asset-only patching as alternative)
 
 ### Platform support
 - [ ] macOS, Windows, Linux desktop
